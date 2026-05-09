@@ -39,6 +39,25 @@ async def health():
         "pairs_scanned": [s['symbol'] for s in state]
     }
 
+@app.get("/test-telegram")
+async def test_telegram():
+    from services.telegram_bot import telegram_service
+    try:
+        await telegram_service.send_signal({
+            "symbol": "SYSTEM",
+            "direction": "ONLINE",
+            "entry": 1.0,
+            "stop_loss": 0.0,
+            "take_profit_1": 2.0,
+            "take_profit_2": 3.0,
+            "risk_reward": "N/A",
+            "confidence": 100,
+            "reasons": ["Scanner is Live", "Multi-Exchange Logic Active", "Connection Verified"]
+        })
+        return {"status": "success", "message": "Test signal sent to Telegram"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
