@@ -20,7 +20,7 @@ const SignalChart: React.FC<SignalChartProps> = ({ symbol, entry, sl, tp }) => {
       chart.applyOptions({ width: chartContainerRef.current?.clientWidth })
     }
 
-    const chart = createChart(chartContainerRef.current, {
+    const chart: any = createChart(chartContainerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
         textColor: '#94a3b8',

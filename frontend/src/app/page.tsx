@@ -152,7 +152,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {signal.reasons.map((reason, j) => (
+                  {signal.reasons.map((reason: string, j: number) => (
                     <span key={j} className="text-[10px] font-bold text-slate-400 bg-slate-800/50 px-2.5 py-1 rounded-lg border border-slate-700/50 flex items-center gap-1.5">
                       <CheckCircle2 className="w-3 h-3 text-emerald-500" />
                       {reason}
