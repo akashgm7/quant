@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
 from api.router import api_router
 from core.websocket_manager import manager
@@ -24,11 +24,13 @@ async def startup_event():
     logger.info("🚀 API is starting up...")
     start_scanner()
 
-@app.get("/")
+# Root handles GET and HEAD for Uptime pings
+@app.api_route("/", methods=["GET", "HEAD"])
 async def root():
     return {"status": "online", "message": "QUANT-X Signal Engine is running"}
 
-@app.get("/health")
+# Health handles GET and HEAD for UptimeRobot
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health():
     from core.store import get_signals, get_scanner_state
     state = get_scanner_state()
