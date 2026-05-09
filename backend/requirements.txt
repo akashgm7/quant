@@ -1,14 +1,11 @@
 fastapi
 uvicorn
-sqlalchemy
-psycopg2-binary
-redis
 ccxt
 pandas
+numpy
 pydantic-settings
 python-telegram-bot
 python-dotenv
 httpx
-asyncpg
 plotly
-kaleido
+kaleido==0.2.1
