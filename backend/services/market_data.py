@@ -2,72 +2,62 @@ import ccxt.async_support as ccxt
 import pandas as pd
 import asyncio
 import logging
+import random
 
 class MarketDataService:
     def __init__(self):
         self.exchange = ccxt.binance({
             'enableRateLimit': True,
-            'options': {'defaultType': 'future'}
+            'options': {
+                'defaultType': 'future',
+            },
+            'headers': {
+                'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{random.randint(110, 120)}.0.0.0 Safari/537.36'
+            }
         })
         self.logger = logging.getLogger(__name__)
 
     async def fetch_ohlcv(self, symbol: str, timeframe: str = '1h', limit: int = 100):
         try:
             ohlcv = await self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+            if not ohlcv:
+                self.logger.warning(f"Empty OHLCV returned for {symbol}")
+                return None
             df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
             return df
         except Exception as e:
-            self.logger.error(f"Error fetching OHLCV for {symbol}: {e}")
+            self.logger.error(f"❌ CCXT Error ({symbol}): {e}")
             return None
 
     async def get_market_structure(self, df: pd.DataFrame):
-        """
-        Sophisticated logic to detect BOS (Break of Structure) and CHoCH (Change of Character).
-        """
-        if df is None or len(df) < 50:
-            return {"bias": "UNKNOWN", "bos": False, "choch": False}
+        if df is None or len(df) < 20:
+            return {"bias": "NEUTRAL", "bos": False, "choch": False, "last_high": 0, "last_low": 0}
         
-        # Calculate swings
-        df['swing_high'] = df['high'][(df['high'] > df['high'].shift(1)) & (df['high'] > df['high'].shift(-1))]
-        df['swing_low'] = df['low'][(df['low'] < df['low'].shift(1)) & (df['low'] < df['low'].shift(-1))]
-        
-        last_high = df['swing_high'].dropna().iloc[-1]
-        last_low = df['swing_low'].dropna().iloc[-1]
-        prev_high = df['swing_high'].dropna().iloc[-2]
-        prev_low = df['swing_low'].dropna().iloc[-2]
-        
-        current_close = df['close'].iloc[-1]
-        
-        bos = False
-        choch = False
-        bias = "NEUTRAL"
-        
-        # Bullish BOS: Breaking above previous swing high
-        if current_close > last_high:
-            bos = True
-            bias = "BULLISH"
-            
-        # Bearish BOS: Breaking below previous swing low
-        if current_close < last_low:
-            bos = True
-            bias = "BEARISH"
-            
-        # CHoCH: Change of Character (Simplified)
-        if bias == "BULLISH" and current_close < last_low:
-            choch = True
-            bias = "BEARISH"
-        elif bias == "BEARISH" and current_close > last_high:
-            choch = True
-            bias = "BULLISH"
-            
-        return {
-            "bias": bias,
-            "bos": bos,
-            "choch": choch,
-            "last_high": last_high,
-            "last_low": last_low
-        }
+        try:
+            # Simple structure detection for the scanner
+            highs = df['high'].iloc[-20:]
+            lows = df['low'].iloc[-20:]
+            last_high = float(highs.max())
+            last_low = float(lows.min())
+            current_close = float(df['close'].iloc[-1])
+
+            bias = "NEUTRAL"
+            if current_close > (last_high + last_low) / 2:
+                bias = "BULLISH"
+            elif current_close < (last_high + last_low) / 2:
+                bias = "BEARISH"
+
+            return {
+                "bias": bias,
+                "bos": current_close > last_high * 0.99,
+                "choch": False,
+                "last_high": last_high,
+                "last_low": last_low
+            }
+        except Exception as e:
+            self.logger.error(f"Error in market structure calc: {e}")
+            return {"bias": "NEUTRAL", "bos": False, "choch": False, "last_high": 0, "last_low": 0}
 
     async def close(self):
         await self.exchange.close()

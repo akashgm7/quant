@@ -2,20 +2,26 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from api.router import api_router
 from core.websocket_manager import manager
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="QUANT-X | AI Market Signal Engine")
 
+# Fully permissive CORS for deployment
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_credentials=True,
 )
 
 @app.on_event("startup")
 async def startup_event():
     from core.scanner import start_scanner
+    logger.info("🚀 API is starting up...")
     start_scanner()
 
 @app.get("/")
@@ -25,10 +31,12 @@ async def root():
 @app.get("/health")
 async def health():
     from core.store import get_signals, get_scanner_state
+    state = get_scanner_state()
     return {
         "status": "healthy",
-        "signals_in_memory": len(get_signals()),
-        "pairs_scanned": len(get_scanner_state())
+        "scanner_active": len(state) > 0,
+        "signals_detected": len(get_signals()),
+        "pairs_scanned": [s['symbol'] for s in state]
     }
 
 @app.websocket("/ws")
