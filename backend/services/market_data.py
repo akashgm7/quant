@@ -6,33 +6,31 @@ import random
 
 class MarketDataService:
     def __init__(self):
-        # Switching to Bybit as it is much more lenient with Cloud IPs (Render/Vercel)
-        self.exchange = ccxt.bybit({
-            'enableRateLimit': True,
-            'options': {
-                'defaultType': 'linear', # This is for USDT Perpetuals
-            },
-            'headers': {
-                'User-Agent': f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{random.randint(110, 120)}.0.0.0 Safari/537.36'
-            }
-        })
+        # We'll try multiple exchanges if one fails due to IP blocks
+        self.exchanges = {
+            'bybit': ccxt.bybit({'enableRateLimit': True, 'options': {'defaultType': 'linear'}}),
+            'mexc': ccxt.mexc({'enableRateLimit': True}),
+            'gateio': ccxt.gateio({'enableRateLimit': True})
+        }
         self.logger = logging.getLogger(__name__)
 
     async def fetch_ohlcv(self, symbol: str, timeframe: str = '15m', limit: int = 100):
-        try:
-            # Bybit uses slightly different symbol naming sometimes, but CCXT handles conversion
-            # We'll ensure it's in the format CCXT likes for Bybit
-            clean_symbol = symbol.replace('/', '') # e.g. BTCUSDT
-            ohlcv = await self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
-            if not ohlcv:
-                self.logger.warning(f"Empty OHLCV returned for {symbol}")
-                return None
-            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-            return df
-        except Exception as e:
-            self.logger.error(f"❌ Bybit API Error ({symbol}): {e}")
-            return None
+        # Try each exchange until one works
+        for name, exchange in self.exchanges.items():
+            try:
+                self.logger.info(f"Attempting to fetch {symbol} from {name}...")
+                ohlcv = await exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+                if ohlcv and len(ohlcv) > 0:
+                    df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+                    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+                    self.logger.info(f"✅ Successfully fetched {symbol} from {name}")
+                    return df
+            except Exception as e:
+                self.logger.warning(f"⚠️ {name} failed for {symbol}: {str(e)[:100]}")
+                continue
+        
+        self.logger.error(f"❌ All exchanges failed for {symbol}")
+        return None
 
     async def get_market_structure(self, df: pd.DataFrame):
         if df is None or len(df) < 20:
@@ -59,10 +57,10 @@ class MarketDataService:
                 "last_low": last_low
             }
         except Exception as e:
-            self.logger.error(f"Error in market structure calc: {e}")
             return {"bias": "NEUTRAL", "bos": False, "choch": False, "last_high": 0, "last_low": 0}
 
     async def close(self):
-        await self.exchange.close()
+        for exchange in self.exchanges.values():
+            await exchange.close()
 
 market_data_service = MarketDataService()
