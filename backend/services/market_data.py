@@ -3,10 +3,10 @@ import pandas as pd
 import asyncio
 import logging
 import random
+from datetime import datetime, time
 
 class MarketDataService:
     def __init__(self):
-        # We'll try multiple exchanges if one fails due to IP blocks
         self.exchanges = {
             'bybit': ccxt.bybit({'enableRateLimit': True, 'options': {'defaultType': 'linear'}}),
             'mexc': ccxt.mexc({'enableRateLimit': True}),
@@ -15,49 +15,55 @@ class MarketDataService:
         self.logger = logging.getLogger(__name__)
 
     async def fetch_ohlcv(self, symbol: str, timeframe: str = '15m', limit: int = 100):
-        # Try each exchange until one works
         for name, exchange in self.exchanges.items():
             try:
-                self.logger.info(f"Attempting to fetch {symbol} from {name}...")
                 ohlcv = await exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
                 if ohlcv and len(ohlcv) > 0:
                     df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
                     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-                    self.logger.info(f"✅ Successfully fetched {symbol} from {name}")
                     return df
-            except Exception as e:
-                self.logger.warning(f"⚠️ {name} failed for {symbol}: {str(e)[:100]}")
+            except Exception:
                 continue
-        
-        self.logger.error(f"❌ All exchanges failed for {symbol}")
         return None
 
-    async def get_market_structure(self, df: pd.DataFrame):
-        if df is None or len(df) < 20:
-            return {"bias": "NEUTRAL", "bos": False, "choch": False, "last_high": 0, "last_low": 0}
+    def get_current_session(self):
+        """
+        Detects active trading session (UTC).
+        London: 08:00 - 16:00
+        NY: 13:00 - 21:00
+        Overlap: 13:00 - 16:00
+        """
+        now_utc = datetime.utcnow().time()
         
-        try:
-            highs = df['high'].iloc[-20:]
-            lows = df['low'].iloc[-20:]
-            last_high = float(highs.max())
-            last_low = float(lows.min())
-            current_close = float(df['close'].iloc[-1])
+        is_london = time(8, 0) <= now_utc <= time(16, 0)
+        is_ny = time(13, 0) <= now_utc <= time(21, 0)
+        
+        if is_london and is_ny: return "LONDON_NY_OVERLAP"
+        if is_london: return "LONDON"
+        if is_ny: return "NEW_YORK"
+        return "ASIA_OFF_PEAK"
 
-            bias = "NEUTRAL"
-            if current_close > (last_high + last_low) / 2:
-                bias = "BULLISH"
-            elif current_close < (last_high + last_low) / 2:
-                bias = "BEARISH"
+    async def get_multi_tf_data(self, symbol: str):
+        """
+        Fetches 4H, 1H, and 15m data for a pair to confirm bias.
+        """
+        tasks = [
+            self.fetch_ohlcv(symbol, '4h', 50),
+            self.fetch_ohlcv(symbol, '1h', 50),
+            self.fetch_ohlcv(symbol, '15m', 100)
+        ]
+        return await asyncio.gather(*tasks)
 
-            return {
-                "bias": bias,
-                "bos": current_close > last_high * 0.99,
-                "choch": False,
-                "last_high": last_high,
-                "last_low": last_low
-            }
-        except Exception as e:
-            return {"bias": "NEUTRAL", "bos": False, "choch": False, "last_high": 0, "last_low": 0}
+    def calculate_vwap(self, df: pd.DataFrame):
+        """
+        Calculates Volume Weighted Average Price (Intraday).
+        """
+        df['tp'] = (df['high'] + df['low'] + df['close']) / 3
+        df['tp_vol'] = df['tp'] * df['volume']
+        # For scalping, we often use a rolling VWAP or session-reset VWAP
+        # Here we use a rolling 100-period as a proxy for intraday VWAP
+        df['vwap'] = df['tp_vol'].rolling(window=100).sum() / df['volume'].rolling(window=100).sum()
+        return df
 
     async def close(self):
         for exchange in self.exchanges.values():

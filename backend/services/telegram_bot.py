@@ -1,67 +1,56 @@
 import httpx
-import logging
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
+import logging
+from typing import Dict, Any
 
 class TelegramService:
     def __init__(self):
-        self.token = os.getenv("TELEGRAM_BOT_TOKEN")
+        self.bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
         self.chat_id = os.getenv("TELEGRAM_CHAT_ID")
-        self.base_url = f"https://api.telegram.org/bot{self.token}"
+        self.base_url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
         self.logger = logging.getLogger(__name__)
 
-    async def send_signal(self, signal_data: dict):
-        if not self.token or not self.chat_id:
-            self.logger.warning("Telegram credentials not found. Skipping alert.")
+    async def send_signal(self, signal: Dict[str, Any]):
+        if not self.bot_token or not self.chat_id:
+            self.logger.warning("Telegram credentials missing.")
             return
 
+        emoji = "🚀" if signal['direction'] == "LONG" else "📉"
+        session_emoji = "🇬🇧" if signal.get('session') == "LONDON" else "🇺🇸" if signal.get('session') == "NEW_YORK" else "🌐"
+        
         message = (
-            f"🚀 *{signal_data['symbol']} {signal_data['direction']} SIGNAL*\n\n"
-            f"Entry: `{signal_data['entry']:.5f}`\n"
-            f"Stop Loss: `{signal_data['stop_loss']:.5f}`\n"
-            f"Take Profit 1: `{signal_data['take_profit_1']:.5f}`\n"
-            f"Take Profit 2: `{signal_data['take_profit_2']:.5f}`\n\n"
-            f"Risk Reward: `1:{signal_data['risk_reward']}`\n"
-            f"Confidence: `{signal_data['confidence']}%`\n\n"
-            f"*Reasons:*\n" + "\n".join([f"✓ {r}" for r in signal_data['reasons']]) + "\n\n"
-            f"Timeframe: `15m`"
+            f"⚡️ **QUANT-X SCALPING SIGNAL** ⚡️\n\n"
+            f"**Pair:** {signal['symbol']} ({signal.get('timeframe', '15m')})\n"
+            f"**Setup:** {signal.get('setup_type', 'Confluence Setup')}\n"
+            f"**Action:** {emoji} {signal['direction']}\n"
+            f"**Session:** {session_emoji} {signal.get('session', 'N/A')}\n"
+            f"--------------------------------\n"
+            f"🎯 **Entry:** {signal['entry']}\n"
+            f"🛑 **Stop Loss:** {signal['stop_loss']}\n"
+            f"✅ **TP 1:** {signal['take_profit_1']}\n"
+            f"💎 **TP 2:** {signal['take_profit_2']}\n"
+            f"⚖️ **RR Ratio:** {signal['risk_reward']}\n"
+            f"--------------------------------\n"
+            f"🧠 **AI Confidence:** {signal['confidence']}%\n"
+            f"📝 **Reasoning:**\n"
         )
-
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{self.base_url}/sendMessage",
-                    json={
-                        "chat_id": self.chat_id,
-                        "text": message,
-                        "parse_mode": "Markdown"
-                    }
-                )
-                if response.status_code != 200:
-                    self.logger.error(f"Telegram API Error: {response.text}")
-        except Exception as e:
-            self.logger.error(f"Error sending Telegram message: {e}")
-    async def send_chart(self, photo_path: str, caption: str):
-        if not self.token or not self.chat_id:
-            return
-
-        try:
-            async with httpx.AsyncClient() as client:
-                with open(photo_path, "rb") as f:
-                    response = await client.post(
-                        f"{self.base_url}/sendPhoto",
-                        data={"chat_id": self.chat_id, "caption": caption, "parse_mode": "Markdown"},
-                        files={"photo": f}
-                    )
-                if response.status_code != 200:
-                    self.logger.error(f"Telegram API Error (Photo): {response.text}")
+        
+        for reason in signal['reasons']:
+            message += f"• {reason}\n"
             
-            # Clean up temp file
-            if os.path.exists(photo_path):
-                os.remove(photo_path)
-        except Exception as e:
-            self.logger.error(f"Error sending Telegram photo: {e}")
+        message += f"\n📊 [View Live Dashboard](https://quant-five-alpha.vercel.app/)"
+
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post(self.base_url, json={
+                    "chat_id": self.chat_id,
+                    "text": message,
+                    "parse_mode": "Markdown",
+                    "disable_web_page_preview": False
+                })
+                return response.json()
+            except Exception as e:
+                self.logger.error(f"Error sending Telegram message: {e}")
+                return None
 
 telegram_service = TelegramService()
