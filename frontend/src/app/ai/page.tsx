@@ -16,7 +16,7 @@ export default function AIEnginePage() {
   const [data, setData] = useState<any>(null)
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/v1/ai/insights')
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/ai/insights`)
       .then(res => res.json())
       .then(json => setData(json))
   }, [])

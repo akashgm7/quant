@@ -18,7 +18,7 @@ export default function ScannerPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/v1/scanner')
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/scanner`)
         const json = await res.json()
         setData(json)
       } catch (err) {

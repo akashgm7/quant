@@ -15,13 +15,13 @@ export default function HistoryPage() {
   const [signals, setSignals] = useState<any[]>([])
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/v1/signals')
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/signals`)
       .then(res => res.json())
       .then(data => setSignals(data))
   }, [])
 
   const updateOutcome = async (id: number, outcome: string) => {
-    await fetch(`http://localhost:8000/api/v1/signals/${id}`, {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/signals/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ outcome })

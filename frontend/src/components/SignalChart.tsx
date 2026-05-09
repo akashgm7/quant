@@ -45,7 +45,7 @@ const SignalChart: React.FC<SignalChartProps> = ({ symbol, entry, sl, tp }) => {
     })
 
     // Fetch Data
-    fetch(`http://localhost:8000/api/v1/history/ohlcv?symbol=${symbol}`)
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/history/ohlcv?symbol=${symbol}`)
       .then(res => res.json())
       .then(data => {
         candlestickSeries.setData(data)

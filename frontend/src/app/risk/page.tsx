@@ -20,13 +20,13 @@ export default function RiskPage() {
   })
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/v1/risk')
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/risk`)
       .then(res => res.json())
       .then(json => setSettings(json))
   }, [])
 
   const handleSave = async () => {
-    const res = await fetch('http://localhost:8000/api/v1/risk/update', {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/risk/update`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings)

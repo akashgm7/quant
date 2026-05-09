@@ -8,11 +8,11 @@ const MarketIntel = () => {
   const [alerts, setAlerts] = useState<any[]>([])
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/v1/external/news')
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/external/news`)
       .then(res => res.json())
       .then(data => setNews(data.slice(0, 5)))
 
-    fetch('http://localhost:8000/api/v1/external/onchain')
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/external/onchain`)
       .then(res => res.json())
       .then(data => setAlerts(data))
   }, [])

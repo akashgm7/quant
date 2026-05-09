@@ -29,7 +29,7 @@ export default function BacktestPage() {
   const runBacktest = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/backtest/run?symbol=${params.symbol}&timeframe=${params.timeframe}&days=${params.days}`)
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/backtest/run?symbol=${params.symbol}&timeframe=${params.timeframe}&days=${params.days}`)
       const json = await res.json()
       setResults(json)
     } catch (err) {

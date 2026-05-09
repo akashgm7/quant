@@ -20,12 +20,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     // Fetch initial signals
-    fetch('http://localhost:8000/api/v1/signals')
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/signals`)
       .then(res => res.json())
       .then(data => setSignals(data))
 
     // Connect to WebSocket
-    const ws = new WebSocket('ws://localhost:8000/ws')
+    const ws = new WebSocket(`${process.env.NEXT_PUBLIC_WS_URL}`)
     
     ws.onmessage = (event) => {
       const message = JSON.parse(event.data)
