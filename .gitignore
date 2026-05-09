@@ -1,0 +1,12 @@
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/.env
+backend/charts/
+*.png
+*.jpg
+.env
+node_modules/
+frontend/.next/
+frontend/out/
