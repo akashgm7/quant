@@ -15,8 +15,8 @@ TIMEFRAMES = ["5m", "15m"]
 async def market_scanner():
     logger.info("🚀 QUANT-X Scalping Scanner started.")
     
-    # Initialize state with symbols so they appear immediately on the dashboard
-    initial_state = [{"symbol": p, "bias": "LOADING", "volatility": "-", "rsi": 0, "price": 0, "change_24h": 0} for p in PAIRS]
+    # Initial Loading State
+    initial_state = [{"symbol": p, "bias": "FETCHING", "volatility": "-", "rsi": 0, "price": 0} for p in PAIRS]
     set_scanner_state(initial_state)
 
     while True:
@@ -24,47 +24,67 @@ async def market_scanner():
             current_state = get_scanner_state()
             
             for symbol in PAIRS:
-                for tf in TIMEFRAMES:
-                    logger.info(f"Scanning {symbol} ({tf})...")
-                    df = await market_data_service.fetch_ohlcv(symbol, timeframe=tf, limit=100)
-                    if df is None:
-                        continue
-
-                    # Update scanner state immediately for this symbol
-                    if tf == "15m":
-                        structure = await market_data_service.get_market_structure(df)
-                        avg_vol = df['volume'].iloc[-20:].mean()
-                        curr_vol = df['volume'].iloc[-1]
-                        
-                        # Find and update this symbol in the state
+                # 1. Quick Price Fetch (Fallback)
+                try:
+                    # Try to get just the ticker first so the UI isn't empty
+                    ticker = await asyncio.wait_for(market_data_service.exchanges['mexc'].fetch_ticker(symbol), timeout=5.0)
+                    if ticker:
                         for i, item in enumerate(current_state):
                             if item["symbol"] == symbol:
-                                current_state[i] = {
-                                    "symbol": symbol,
-                                    "bias": structure["bias"],
-                                    "volatility": "High" if curr_vol > avg_vol * 1.5 else "Normal",
-                                    "rsi": 50.0, # Placeholder or calculate
-                                    "price": float(df['close'].iloc[-1]),
-                                    "change_24h": 0.0
-                                }
+                                current_state[i]["price"] = float(ticker['last'])
+                                current_state[i]["bias"] = "SCANNING..."
                                 break
-                        
-                        # Broadcast update immediately
                         set_scanner_state(current_state)
                         await manager.broadcast({"type": "scanner_update", "data": current_state})
+                except Exception:
+                    pass
 
-                    # SCALPING SIGNAL ANALYSIS
-                    signal = await signal_engine.analyze_confluence(df, symbol, market_data_service)
-                    if signal:
-                        signal["timeframe"] = tf
-                        stored = add_signal(signal)
-                        await telegram_service.send_signal(stored)
-                        await manager.broadcast({"type": "new_signal", "data": stored})
+                for tf in TIMEFRAMES:
+                    try:
+                        logger.info(f"Scanning {symbol} ({tf})...")
+                        # Add a 10-second timeout to prevent hanging the whole loop
+                        df = await asyncio.wait_for(market_data_service.fetch_ohlcv(symbol, timeframe=tf, limit=100), timeout=10.0)
+                        
+                        if df is None:
+                            continue
+
+                        if tf == "15m":
+                            structure = await market_data_service.get_market_structure(df)
+                            avg_vol = df['volume'].iloc[-20:].mean()
+                            curr_vol = df['volume'].iloc[-1]
+                            
+                            for i, item in enumerate(current_state):
+                                if item["symbol"] == symbol:
+                                    current_state[i].update({
+                                        "bias": structure["bias"],
+                                        "volatility": "High" if curr_vol > avg_vol * 1.5 else "Normal",
+                                        "price": float(df['close'].iloc[-1]),
+                                        "rsi": 50.0
+                                    })
+                                    break
+                            
+                            set_scanner_state(current_state)
+                            await manager.broadcast({"type": "scanner_update", "data": current_state})
+
+                        # SIGNAL ANALYSIS
+                        signal = await signal_engine.analyze_confluence(df, symbol, market_data_service)
+                        if signal:
+                            signal["timeframe"] = tf
+                            stored = add_signal(signal)
+                            await telegram_service.send_signal(stored)
+                            await manager.broadcast({"type": "new_signal", "data": stored})
+                    
+                    except asyncio.TimeoutError:
+                        logger.warning(f"Timeout scanning {symbol} {tf}")
+                        continue
+                    except Exception as e:
+                        logger.error(f"Error scanning {symbol} {tf}: {e}")
+                        continue
 
         except Exception as e:
             logger.error(f"Scanner loop error: {e}")
 
-        await asyncio.sleep(30) # High-frequency refresh
+        await asyncio.sleep(20)
 
 def start_scanner():
     asyncio.create_task(market_scanner())
