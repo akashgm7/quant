@@ -19,17 +19,20 @@ export default function Dashboard() {
   const [engineStatus, setEngineStatus] = useState('Stable')
 
   useEffect(() => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://quant-2.onrender.com/api/v1';
+    const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'wss://quant-2.onrender.com/ws';
+
     // Fetch initial signals
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/signals`)
+    fetch(`${API_URL}/signals`)
       .then(res => res.json())
       .then(data => setSignals(data))
 
     // Connect to WebSocket
-    const ws = new WebSocket(`${process.env.NEXT_PUBLIC_WS_URL}`)
+    const ws = new WebSocket(`${WS_URL}`)
     
     ws.onmessage = (event) => {
       const message = JSON.parse(event.data)
-      if (message.type === 'NEW_SIGNAL') {
+      if (message.type === 'new_signal') {
         setSignals(prev => [message.data, ...prev])
       }
     }
