@@ -54,7 +54,7 @@ async def test_telegram():
             "take_profit_2": 3.0,
             "risk_reward": "N/A",
             "confidence": 100,
-            "reasons": ["Scanner is Live", "Multi-Exchange Logic Active", "Connection Verified"]
+            "reasons": ["Scanner is Live", "Indian Market Session Active", "Connection Verified"]
         })
         return {"status": "success", "message": "Test signal sent to Telegram"}
     except Exception as e:

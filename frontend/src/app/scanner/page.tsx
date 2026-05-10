@@ -69,7 +69,7 @@ export default function ScannerPage() {
             <Search className="w-8 h-8 text-emerald-500" />
             Market Scanner
           </h1>
-          <p className="text-slate-400">Real-time technical bias across all monitored pairs.</p>
+          <p className="text-slate-400">Real-time technical bias across all monitored indices.</p>
         </div>
         <div className="flex items-center gap-3">
           {error && (
@@ -89,7 +89,7 @@ export default function ScannerPage() {
         <table className="w-full text-left">
           <thead className="bg-slate-900/80 border-b border-slate-800">
             <tr>
-              <th className="px-6 py-4 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Asset</th>
+              <th className="px-6 py-4 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Index</th>
               <th className="px-6 py-4 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Current Price</th>
               <th className="px-6 py-4 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Market Bias</th>
               <th className="px-6 py-4 text-[10px] uppercase font-bold text-slate-500 tracking-widest">Volatility</th>
@@ -109,14 +109,14 @@ export default function ScannerPage() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center font-bold text-xs">
-                        {item.symbol.split('/')[0][0]}
+                        {item.symbol[0]}
                       </div>
                       <span className="font-bold text-white">{item.symbol}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <span className="font-mono text-slate-300">
-                        {item.price > 0 ? `$${item.price.toLocaleString()}` : 'FETCHING...'}
+                        {item.price > 0 ? `₹${item.price.toLocaleString()}` : 'FETCHING...'}
                     </span>
                   </td>
                   <td className="px-6 py-4">

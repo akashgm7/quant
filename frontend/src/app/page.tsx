@@ -125,7 +125,7 @@ export default function Dashboard() {
                 <div className="flex items-start justify-between mb-6">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center font-bold text-lg">
-                      {signal.symbol?.split('/')[0][0]}
+                      {signal.symbol?.[0]}
                     </div>
                     <div>
                       <h4 className="text-lg font-bold text-white">{signal.symbol}</h4>
