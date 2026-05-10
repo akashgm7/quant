@@ -28,19 +28,36 @@ export default function Dashboard() {
       .then(data => setSignals(data))
 
     // Connect to WebSocket
-    const ws = new WebSocket(`${WS_URL}`)
+    let ws: WebSocket | null = null;
     
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data)
-      if (message.type === 'new_signal') {
-        setSignals(prev => [message.data, ...prev])
-      }
+    const connectWS = () => {
+        ws = new WebSocket(`${WS_URL}`)
+        
+        ws.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data)
+            if (message.type === 'new_signal') {
+              setSignals(prev => [message.data, ...prev])
+            }
+          } catch (e) {}
+        }
+
+        ws.onopen = () => setEngineStatus('Stable')
+        ws.onclose = () => {
+            setEngineStatus('Disconnected')
+            // Attempt reconnect after 5s
+            setTimeout(connectWS, 5000)
+        }
+        ws.onerror = () => ws?.close()
     }
 
-    ws.onopen = () => setEngineStatus('Stable')
-    ws.onclose = () => setEngineStatus('Disconnected')
+    connectWS()
 
-    return () => ws.close()
+    return () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.close()
+        }
+    }
   }, [])
 
   const stats = [
